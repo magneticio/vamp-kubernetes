@@ -23,7 +23,10 @@ lazy val root = project.in(sbt.file(".")).settings(packAutoSettings ++ Seq(packE
   libraryDependencies ++= Seq(
     "io.vamp" %% "vamp-pulse" % "katana" % "provided",
     "io.vamp" %% "vamp-workflow_driver" % "katana" % "provided",
-    "io.vamp" %% "vamp-container_driver" % "katana" % "provided"
+    "io.vamp" %% "vamp-container_driver" % "katana" % "provided",
+    "junit" % "junit" % "4.11" % "test",
+    "org.scalatest" %% "scalatest" % "3.0.1" % "test",
+    "org.scalacheck" %% "scalacheck" % "1.13.4" % "test"
   )
 )
 

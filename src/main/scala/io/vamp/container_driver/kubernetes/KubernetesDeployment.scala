@@ -22,7 +22,7 @@ trait KubernetesDeployment extends KubernetesArtifact {
 
   private lazy val deploymentUrl = s"$apiUrl/apis/extensions/v1beta1/namespaces/${namespace.name}/deployments"
 
-  override protected def supportedDeployableTypes = RktDeployableType :: DockerDeployableType :: Nil
+  override protected def supportedDeployableTypes: List[DeployableType] = RktDeployableType :: DockerDeployableType :: Nil
 
   protected def schema: Enumeration
 
@@ -128,7 +128,6 @@ trait KubernetesDeployment extends KubernetesArtifact {
   }
 
   private def deploy(id: String, docker: Docker, scale: DefaultScale, environmentVariables: Map[String, String], labels: Map[String, String], update: Boolean): Future[Any] = {
-
     val app = KubernetesApp(
       name = id,
       docker = docker,

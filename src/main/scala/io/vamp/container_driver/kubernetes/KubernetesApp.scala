@@ -1,6 +1,8 @@
 package io.vamp.container_driver.kubernetes
 
 import io.vamp.container_driver.Docker
+import org.json4s._
+import org.json4s.native.Serialization._
 
 case class KubernetesApp(
     name:       String,
@@ -12,13 +14,14 @@ case class KubernetesApp(
     env:        Map[String, String],
     cmd:        List[String],
     args:       List[String],
-    labels:     Map[String, String]
+    labels:     Map[String, String],
+    dialect:    Map[String, Any]    = Map()
 ) extends KubernetesArtifact {
 
-  override def toString =
-    s"""
+  override def toString: String = {
+    val base = s"""
        |{
-       |  "apiVersion": "extensions/v1beta1",
+       |  "apiVersion": "apps/v1beta1",
        |  "kind": "Deployment",
        |  "metadata": {
        |    "name": "$name"
@@ -51,7 +54,18 @@ case class KubernetesApp(
        |    }
        |  }
        |}
-     """.stripMargin
+       |""".stripMargin
+
+    implicit val formats: Formats = DefaultFormats
+    val request = Extraction.decompose(Map(
+      "spec" → Map(
+        "template" → Map(
+          "spec" → dialect.filterNot { case (k, _) ⇒ k == "containers" }
+        )
+      )
+    )) merge Extraction.decompose(read[Any](base))
+    write(request)
+  }
 }
 
 case class KubernetesApiResponse(items: List[KubernetesItem] = Nil)
