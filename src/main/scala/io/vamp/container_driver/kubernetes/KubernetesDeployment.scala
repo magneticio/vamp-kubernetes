@@ -9,6 +9,10 @@ import io.vamp.model.reader.{ MegaByte, Quantity }
 
 import scala.concurrent.Future
 
+object KubernetesDeployment {
+  val dialect = "kubernetes"
+}
+
 trait KubernetesDeployment extends KubernetesArtifact {
   this: KubernetesContainerDriver with CommonActorLogging ⇒
 
@@ -89,7 +93,22 @@ trait KubernetesDeployment extends KubernetesArtifact {
     val id = appId(deployment, service.breed)
     if (update) log.info(s"kubernetes update app: $id") else log.info(s"kubernetes create app: $id")
 
-    deploy(id, docker(deployment, cluster, service), service.scale.get, environment(deployment, cluster, service), labels(deployment, cluster, service) ++ labels(id, deploymentServiceIdLabel), update)
+    val (local, dialect) = (deployment.dialects.get(KubernetesDeployment.dialect), cluster.dialects.get(KubernetesDeployment.dialect), service.dialects.get(KubernetesDeployment.dialect)) match {
+      case (_, _, Some(d))       ⇒ Some(service) → d
+      case (_, Some(d), None)    ⇒ None → d
+      case (Some(d), None, None) ⇒ None → d
+      case _                     ⇒ None → Map()
+    }
+
+    deploy(
+      id = id,
+      docker = docker(deployment, cluster, service),
+      scale = service.scale.get,
+      environmentVariables = environment(deployment, cluster, service),
+      labels = labels(deployment, cluster, service) ++ labels(id, deploymentServiceIdLabel),
+      update = update,
+      dialect = interpolate(deployment, local, dialect.asInstanceOf[Map[String, Any]])
+    )
   }
 
   protected def undeploy(deployment: Deployment, service: DeploymentService): Future[Any] = {
@@ -117,8 +136,17 @@ trait KubernetesDeployment extends KubernetesArtifact {
     if (update) log.info(s"kubernetes update workflow: ${workflow.name}") else log.info(s"kubernetes create workflow: ${workflow.name}")
 
     val scale = workflow.scale.get.asInstanceOf[DefaultScale]
+    val dialect = workflow.dialects.getOrElse(KubernetesDeployment.dialect, Map())
 
-    deploy(id, docker(workflow), scale, environment(workflow), labels(workflow) ++ labels(id, workflowIdLabel), update)
+    deploy(
+      id = id,
+      docker = docker(workflow),
+      scale = scale,
+      environmentVariables = environment(workflow),
+      labels = labels(workflow) ++ labels(id, workflowIdLabel),
+      update = update,
+      dialect = dialect.asInstanceOf[Map[String, Any]]
+    )
   }
 
   protected def undeploy(workflow: Workflow): Future[Any] = {
@@ -127,7 +155,7 @@ trait KubernetesDeployment extends KubernetesArtifact {
     undeploy(id, workflowIdLabel)
   }
 
-  private def deploy(id: String, docker: Docker, scale: DefaultScale, environmentVariables: Map[String, String], labels: Map[String, String], update: Boolean): Future[Any] = {
+  private def deploy(id: String, docker: Docker, scale: DefaultScale, environmentVariables: Map[String, String], labels: Map[String, String], update: Boolean, dialect: Map[String, Any]): Future[Any] = {
     val app = KubernetesApp(
       name = id,
       docker = docker,
@@ -138,7 +166,8 @@ trait KubernetesDeployment extends KubernetesArtifact {
       env = environmentVariables,
       cmd = Nil,
       args = Nil,
-      labels = labels
+      labels = labels,
+      dialect = dialect
     )
 
     if (update) httpClient.put[Any](s"$deploymentUrl/$id", app.toString, apiHeaders) else httpClient.post[Any](deploymentUrl, app.toString, apiHeaders)
