@@ -1,8 +1,8 @@
 package io.vamp.container_driver.kubernetes
 
 import io.vamp.container_driver.Docker
-import org.json4s._
 import org.json4s.native.Serialization._
+import org.json4s.{ DefaultFormats, Formats }
 
 case class KubernetesApp(
     name:       String,
@@ -19,53 +19,43 @@ case class KubernetesApp(
 ) extends KubernetesArtifact {
 
   override def toString: String = {
-    val base =
-      s"""
-         |{
-         |  "apiVersion": "apps/v1beta1",
-         |  "kind": "Deployment",
-         |  "metadata": {
-         |    "name": "$name"
-         |  },
-         |  "spec": {
-         |    "replicas": $replicas,
-         |    "template": {
-         |      "metadata": {
-         |        ${labels2json(labels)}
-         |      },
-         |      "spec": {
-         |        "containers": [{
-         |          "image": "${docker.image}",
-         |          "name": "$name",
-         |          "env": [${env.map({ case (n, v) ⇒ s"""{"name": "$n", "value": "$v"}""" }).mkString(", ")}],
-         |          "ports": [${docker.portMappings.map(pm ⇒ s"""{"name": "p${pm.containerPort}", "containerPort": ${pm.containerPort}, "protocol": "${pm.protocol.toUpperCase}"}""").mkString(", ")}],
-         |          "args": [${args.map(str ⇒ s""""$str"""").mkString(", ")}],
-         |          "command": [${cmd.map(str ⇒ s""""$str"""").mkString(", ")}],
-         |          "resources": {
-         |            "requests": {
-         |              "cpu": $cpu,
-         |              "memory": "${mem}Mi"
-         |            }
-         |          },
-         |          "securityContext": {
-         |            "privileged": $privileged
-         |          }
-         |        }]
-         |      }
-         |    }
-         |  }
-         |}
-         |""".stripMargin
-
     implicit val formats: Formats = DefaultFormats
-    val request = Extraction.decompose(Map(
-      "spec" → Map(
-        "template" → Map(
-          "spec" → dialect.filterNot { case (k, _) ⇒ k == "containers" }
+    write(
+      Map(
+        "apiVersion" → "apps/v1beta1",
+        "kind" → "Deployment",
+        "metadata" → Map("name" → name),
+        "spec" → Map(
+          "replicas" → replicas,
+          "template" → Map(
+            "metadata" → labels2map(labels),
+            "spec" → (
+              dialect ++ Map(
+                "containers" → List(
+                  Map(
+                    "image" → docker.image,
+                    "name" → name,
+                    "env" → env.map({ case (n, v) ⇒ Map("name" → n, "value" → v) }),
+                    "ports" → docker.portMappings.map(pm ⇒ Map(
+                      "name" → s"p${pm.containerPort}", "containerPort" → pm.containerPort, "protocol" → pm.protocol.toUpperCase
+                    )),
+                    "args" → args,
+                    "command" → cmd,
+                    "resources" → Map(
+                      "requests" → Map(
+                        "cpu" → cpu,
+                        "memory" → s"${mem}Mi"
+                      )
+                    ),
+                    "securityContext" → Map("privileged" → privileged)
+                  )
+                )
+              )
+            )
+          )
         )
       )
-    )) merge Extraction.decompose(read[Any](base))
-    write(request)
+    )
   }
 }
 

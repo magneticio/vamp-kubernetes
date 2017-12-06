@@ -20,15 +20,15 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
       cpu = 1,
       mem = 1024,
       privileged = true,
-      env = Map[String, String]("HOME" → "/usr/local/app"),
+      env = Map[String, String]("HOME" → "/usr/local/app", "BIN" → "/a/b"),
       cmd = List("a", "b"),
       args = List("arg"),
       labels = Map[String, String]("node" → "test")
     )
 
-    read[Any](app.toString) should be(
-      read[Any](
-        """
+    val actual = read[Any](app.toString)
+    val expected = read[Any](
+      """
           |{
           |  "apiVersion": "apps/v1beta1",
           |  "kind": "Deployment",
@@ -45,7 +45,7 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |       "containers": [{
           |         "image": "may/app",
           |         "name": "my_app",
-          |         "env": [{"name": "HOME", "value": "/usr/local/app"}],
+          |         "env": [{"name": "HOME", "value": "/usr/local/app"}, {"name": "BIN", "value": "/a/b"}],
           |         "ports": [{"name": "p8080", "containerPort": 8080, "protocol": "TCP"}],
           |         "args": ["arg"],
           |         "command": ["a", "b"],
@@ -64,19 +64,20 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |  }
           |}
           |""".stripMargin
-      )
     )
+
+    actual should be(expected)
   }
 
   it should "merge dialect data" in {
     val app = KubernetesApp(
       name = "my_app",
-      docker = Docker("may/app", List(DockerPortMapping(8080, Some(80))), Nil, privileged = true, network = "custom"),
+      docker = Docker("may/app", List(DockerPortMapping(8080, Some(80))), Nil, privileged = false, network = "custom"),
       replicas = 3,
       cpu = 1,
       mem = 1024,
-      privileged = true,
-      env = Map[String, String]("HOME" → "/usr/local/app"),
+      privileged = false,
+      env = Map[String, String]("HOME" → "/usr/local/app", "BIN" → "/a/b"),
       cmd = List("a", "b"),
       args = List("arg"),
       labels = Map[String, String]("node" → "test"),
@@ -106,12 +107,13 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |  "dnsPolicy": "ClusterFirst",
           |  "nodeName": "aci-connector"
           |}
-        """.stripMargin).asInstanceOf[Map[String, Any]]
+        """.stripMargin
+      ).asInstanceOf[Map[String, Any]]
     )
 
-    read[Any](app.toString) should be(
-      read[Any](
-        """
+    val actual = read[Any](app.toString)
+    val expected = read[Any](
+      """
           |{
           |  "apiVersion": "apps/v1beta1",
           |  "kind": "Deployment",
@@ -128,7 +130,7 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |       "containers": [{
           |         "image": "may/app",
           |         "name": "my_app",
-          |         "env": [{"name": "HOME", "value": "/usr/local/app"}],
+          |         "env": [{"name": "HOME", "value": "/usr/local/app"}, {"name": "BIN", "value": "/a/b"}],
           |         "ports": [{"name": "p8080", "containerPort": 8080, "protocol": "TCP"}],
           |         "args": ["arg"],
           |         "command": ["a", "b"],
@@ -139,7 +141,7 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |           }
           |         },
           |         "securityContext": {
-          |           "privileged": true
+          |           "privileged": false
           |         }
           |       }],
           |       "affinity": {
@@ -169,8 +171,9 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |  }
           |}
           |""".stripMargin
-      )
     )
+
+    actual should be(expected)
   }
 
   it should "override dialect container" in {
@@ -195,12 +198,13 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |  "dnsPolicy": "ClusterFirst",
           |  "nodeName": "aci-connector"
           |}
-        """.stripMargin).asInstanceOf[Map[String, Any]]
+        """.stripMargin
+      ).asInstanceOf[Map[String, Any]]
     )
 
-    read[Any](app.toString) should be(
-      read[Any](
-        """
+    val actual = read[Any](app.toString)
+    val expected = read[Any](
+      """
           |{
           |  "apiVersion": "apps/v1beta1",
           |  "kind": "Deployment",
@@ -238,7 +242,8 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
           |  }
           |}
           |""".stripMargin
-      )
     )
+
+    actual should be(expected)
   }
 }
