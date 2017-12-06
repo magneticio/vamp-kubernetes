@@ -22,7 +22,7 @@ case class KubernetesApp(
     implicit val formats: Formats = DefaultFormats
     write(
       Map(
-        "apiVersion" → "apps/v1beta1",
+        "apiVersion" → "extensions/v1beta1",
         "kind" → "Deployment",
         "metadata" → Map("name" → name),
         "spec" → Map(

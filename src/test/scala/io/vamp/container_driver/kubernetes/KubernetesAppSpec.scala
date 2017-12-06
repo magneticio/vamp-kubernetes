@@ -30,7 +30,7 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
     val expected = read[Any](
       """
           |{
-          |  "apiVersion": "apps/v1beta1",
+          |  "apiVersion": "extensions/v1beta1",
           |  "kind": "Deployment",
           |  "metadata": {
           |   "name": "my_app"
@@ -115,7 +115,7 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
     val expected = read[Any](
       """
           |{
-          |  "apiVersion": "apps/v1beta1",
+          |  "apiVersion": "extensions/v1beta1",
           |  "kind": "Deployment",
           |  "metadata": {
           |   "name": "my_app"
@@ -206,7 +206,7 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
     val expected = read[Any](
       """
           |{
-          |  "apiVersion": "apps/v1beta1",
+          |  "apiVersion": "extensions/v1beta1",
           |  "kind": "Deployment",
           |  "metadata": {
           |   "name": "my_app"
