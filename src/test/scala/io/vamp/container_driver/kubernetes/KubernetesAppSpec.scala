@@ -246,4 +246,93 @@ class KubernetesAppSpec extends FlatSpec with Matchers {
 
     actual should be(expected)
   }
+
+  it should "merge dialect container" in {
+    val app = KubernetesApp(
+      name = "my_app",
+      docker = Docker("may/app", List(DockerPortMapping(8080, Some(80))), Nil, privileged = true, network = "custom"),
+      replicas = 3,
+      cpu = 1,
+      mem = 1024,
+      privileged = true,
+      env = Map[String, String]("HOME" → "/usr/local/app"),
+      cmd = List("a", "b"),
+      args = List("arg"),
+      labels = Map[String, String]("node" → "test"),
+      dialect = read[Any](
+        """
+          |{
+          |  "containers": [{
+          |    "volumeMounts": [{
+          |      "name": "azure",
+          |      "mountPath": "/mnt/azure"
+          |    }]
+          |  }],
+          |  "volumes": [{
+          |    "name": "azure",
+          |    "azureDisk": {
+          |      "diskName": "test.vhd",
+          |      "diskURI": "https://someaccount.blob.microsoft.net/vhds/test.vhd"
+          |    }
+          |  }]
+          |}
+        """.stripMargin
+      ).asInstanceOf[Map[String, Any]]
+    )
+
+    val actual = read[Any](app.toString)
+    val expected = read[Any](
+      """
+        |{
+        |  "apiVersion": "extensions/v1beta1",
+        |  "kind": "Deployment",
+        |  "metadata": {
+        |   "name": "my_app"
+        |  },
+        |  "spec": {
+        |   "replicas": 3,
+        |   "template": {
+        |     "metadata": {
+        |       "labels": {"node": "test"}
+        |     },
+        |     "spec": {
+        |       "containers": [{
+        |         "image": "may/app",
+        |         "name": "my_app",
+        |         "env": [{"name": "HOME", "value": "/usr/local/app"}],
+        |         "ports": [{"name": "p8080", "containerPort": 8080, "protocol": "TCP"}],
+        |         "args": ["arg"],
+        |         "command": ["a", "b"],
+        |         "resources": {
+        |           "requests": {
+        |             "cpu": 1.0,
+        |             "memory": "1024Mi"
+        |           }
+        |         },
+        |         "securityContext": {
+        |           "privileged": true
+        |         },
+        |         "volumeMounts": [{
+        |           "name": "azure",
+        |           "mountPath": "/mnt/azure"
+        |         }]
+        |       }],
+        |       "volumes": [
+        |         {
+        |           "name": "azure",
+        |           "azureDisk": {
+        |             "diskName": "test.vhd",
+        |             "diskURI": "https://someaccount.blob.microsoft.net/vhds/test.vhd"
+        |           }
+        |         }
+        |       ]
+        |      }
+        |    }
+        |  }
+        |}
+        |""".stripMargin
+    )
+
+    actual should be(expected)
+  }
 }

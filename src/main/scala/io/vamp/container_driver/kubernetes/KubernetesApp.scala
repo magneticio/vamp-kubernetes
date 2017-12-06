@@ -19,43 +19,51 @@ case class KubernetesApp(
 ) extends KubernetesArtifact {
 
   override def toString: String = {
-    implicit val formats: Formats = DefaultFormats
-    write(
-      Map(
-        "apiVersion" → "extensions/v1beta1",
-        "kind" → "Deployment",
-        "metadata" → Map("name" → name),
-        "spec" → Map(
-          "replicas" → replicas,
-          "template" → Map(
-            "metadata" → labels2map(labels),
-            "spec" → (
-              dialect ++ Map(
-                "containers" → List(
-                  Map(
-                    "image" → docker.image,
-                    "name" → name,
-                    "env" → env.map({ case (n, v) ⇒ Map("name" → n, "value" → v) }),
-                    "ports" → docker.portMappings.map(pm ⇒ Map(
-                      "name" → s"p${pm.containerPort}", "containerPort" → pm.containerPort, "protocol" → pm.protocol.toUpperCase
-                    )),
-                    "args" → args,
-                    "command" → cmd,
-                    "resources" → Map(
-                      "requests" → Map(
-                        "cpu" → cpu,
-                        "memory" → s"${mem}Mi"
-                      )
-                    ),
-                    "securityContext" → Map("privileged" → privileged)
-                  )
-                )
+
+    val container: Map[String, Any] = Map[String, Any](
+      "image" → docker.image,
+      "name" → name,
+      "env" → env.map({ case (n, v) ⇒ Map[String, Any]("name" → n, "value" → v) }),
+      "ports" → docker.portMappings.map(pm ⇒ Map[String, Any](
+        "name" → s"p${pm.containerPort}", "containerPort" → pm.containerPort, "protocol" → pm.protocol.toUpperCase
+      )),
+      "args" → args,
+      "command" → cmd,
+      "resources" → Map[String, Any](
+        "requests" → Map[String, Any](
+          "cpu" → cpu,
+          "memory" → s"${mem}Mi"
+        )
+      ),
+      "securityContext" → Map[String, Any]("privileged" → privileged)
+    )
+
+    val containerDialect: Map[String, Any] = (dialect.getOrElse("containers", List()) match {
+      case l: List[_] ⇒ l.headOption.getOrElse(Map()).asInstanceOf[Map[String, Any]]
+      case _          ⇒ Map[String, Any]()
+    }).filterNot { case (k, _) ⇒ container.contains(k) }
+
+    val deployment = Map(
+      "apiVersion" → "extensions/v1beta1",
+      "kind" → "Deployment",
+      "metadata" → Map("name" → name),
+      "spec" → Map(
+        "replicas" → replicas,
+        "template" → Map(
+          "metadata" → labels2map(labels),
+          "spec" → (
+            dialect ++ Map(
+              "containers" → List(
+                containerDialect ++ container
               )
             )
           )
         )
       )
     )
+
+    implicit val formats: Formats = DefaultFormats
+    write(deployment)
   }
 }
 
